@@ -5,6 +5,7 @@ defmodule TcpExPlayground do
     import Supervisor.Spec, warn: false
 
     children = [
+      {Task.Supervisor, name: TcpExPlayground.TaskSupervisor},
       worker(RequestReply.Worker, []),
       worker(ThrottleAck.Worker, []),
       worker(HeadRest.Worker, []),

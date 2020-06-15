@@ -1,5 +1,6 @@
 defmodule AsyncAck.Handler do
   use GenServer
+  require Logger
 
   def start_link(ref, socket, transport, opts) do
     pid = :proc_lib.spawn_link(__MODULE__, :init, [ref, socket, transport, opts])
@@ -15,6 +16,7 @@ defmodule AsyncAck.Handler do
   end
 
   def init(ref, socket, transport, _Opts = []) do
+    Logger.debug("new socket")
     :ok = :ranch.accept_ack(ref)
     :ok = transport.setopts(socket, active: true, nodelay: true)
 
@@ -80,13 +82,14 @@ defmodule AsyncAck.Handler do
   # Server callbacks
 
   def handle_info({:tcp, _, packet}, state) do
-    {:message_queue_len, length} = :erlang.process_info(state.responder_pid, :message_queue_len)
+    {:ok, _json} = Jason.decode(packet)
 
-    if(length > 100) do
-      :timer.sleep(div(length, 100))
-    end
-
-    send(state.responder_pid, {:message, packet})
+    Task.Supervisor.async_nolink(TcpExPlayground.TaskSupervisor, fn ->
+      # This is simulating doing stuff
+      # takes more than 5 seconds.
+      Process.sleep(5500)
+      Logger.debug("Touched the DB!")
+    end)
 
     {:noreply, state}
   end
@@ -97,6 +100,16 @@ defmodule AsyncAck.Handler do
 
   def handle_info({:tcp_error, _, _reason}, state) do
     shutdown(state.socket, state.transport, state.responder_pid)
+  end
+
+  def handle_info({_ref, :ok}, state) do
+    Logger.debug("ref")
+    {:noreply, state}
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, state) do
+    Logger.debug("ASYNC DOWN")
+    {:noreply, state}
   end
 
   defp shutdown(socket, transport, responder_pid) do

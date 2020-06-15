@@ -17,6 +17,6 @@ defmodule TcpExPlayground.Mixfile do
   end
 
   defp deps() do
-    [{:ranch, "~> 1.1"}]
+    [{:ranch, "~> 1.1"}, {:jason, "~> 1.1"}]
   end
 end
